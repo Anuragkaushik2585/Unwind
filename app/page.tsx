@@ -28,13 +28,13 @@ export default function Home() {
           <p className="text-[#F5A623] text-xs font-semibold tracking-widest uppercase mb-5">
             ✦ Delhi NCR · Launching Soon
           </p>
-          <h1 className="text-white text-4xl md:text-6xl font-black leading-tight mb-2">
+          <h1 className="text-white text-3xl md:text-6xl font-black leading-tight mb-2">
             Stop wasting
           </h1>
-          <h1 className="text-[#F5A623] text-4xl md:text-6xl font-black leading-tight mb-2">
+          <h1 className="text-[#F5A623] text-3xl md:text-6xl font-black leading-tight mb-2">
             your weekends.
           </h1>
-          <h1 className="text-white text-4xl md:text-6xl font-black leading-tight mb-6">
+          <h1 className="text-white text-3xl md:text-6xl font-black leading-tight mb-6">
             Start living them.
           </h1>
           <p className="text-white/80 text-sm md:text-lg max-w-md leading-relaxed mb-8">
