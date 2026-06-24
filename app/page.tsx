@@ -7,13 +7,25 @@ const [messages, setMessages] = useState([
 ])
 const [input, setInput] = useState("")
 
-const sendMessage = () => {
+const sendMessage = async () => {
   if (!input.trim()) return
-  setMessages([...messages, { role: "user", text: input }])
+  const newMessages = [...messages, { role: "user", text: input }]
+  setMessages(newMessages)
   setInput("")
-  setTimeout(() => {
-    setMessages(prev => [...prev, { role: "bot", text: "Got it! What's your budget and how much time do you have?" }])
-  }, 800)
+
+const res = await fetch("/api/chat", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ messages: newMessages })
+})
+
+if (!res.ok) {
+  setMessages(prev => [...prev, { role: "bot", text: "Sorry, I'm having trouble right now. Try again in a moment!" }])
+  return
+}
+
+const data = await res.json()
+setMessages(prev => [...prev, { role: "bot", text: data.reply }])
 }
   const openForm = () => {
     window.open('https://docs.google.com/forms/d/e/1FAIpQLSe5c93f6-R_nNTrQRHAEc_4-6p6ENp3RvGVPNnP8pIE1BAykw/viewform', '_blank')
