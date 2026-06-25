@@ -61,9 +61,24 @@ export async function POST(req: Request) {
     try {
       const model = genAI.getGenerativeModel({ model: modelName })
       const chat = model.startChat({ history })
-      const result = await chat.sendMessage(lastMessage)
-      const response = result.response.text()
-      return NextResponse.json({ reply: response })
+      const result = await chat.sendMessageStream(lastMessage)
+
+      const stream = new ReadableStream({
+        async start(controller) {
+          for await (const chunk of result.stream) {
+            const text = chunk.text()
+            if (text) {
+              controller.enqueue(new TextEncoder().encode(text))
+            }
+          }
+          controller.close()
+        }
+      })
+
+      return new Response(stream, {
+        headers: { "Content-Type": "text/plain; charset=utf-8" }
+      })
+
     } catch (error: unknown) {
       const status = (error as {status?: number})?.status
       if (status === 503 || status === 429 || status === 404) {
@@ -73,5 +88,6 @@ export async function POST(req: Request) {
     }
   }
 
-  return NextResponse.json({ reply: "I'm having trouble right now. Please try again in a moment!" })
+  return NextResponse.json({ error: "Service unavailable" }, { status: 503 })
 }
+export const dynamic = 'force-dynamic'
