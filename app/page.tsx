@@ -1,5 +1,6 @@
 "use client"
 import { useState } from "react"
+import ReactMarkdown from "react-markdown"
 export default function Home() {
   const [chatOpen, setChatOpen] = useState(false)
   const [isTyping, setIsTyping] = useState(false)
@@ -131,12 +132,29 @@ const sendMessage = async () => {
           </div>
           <div className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-3">
             {messages.map((msg, i) => (
-              <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`px-4 py-2 rounded-2xl text-sm max-w-[80%] ${msg.role === 'user' ? 'bg-[#0D4A4A] text-white rounded-br-sm' : 'bg-gray-100 text-gray-800 rounded-bl-sm'}`}>
-                  {msg.text}
-                </div>
-              </div>
-            ))}
+  <div
+    key={i}
+    className={`flex ${
+      msg.role === "user" ? "justify-end" : "justify-start"
+    }`}
+  >
+    <div
+      className={`px-4 py-3 rounded-2xl text-sm max-w-[90%] md:max-w-[80%] ${
+        msg.role === "user"
+          ? "bg-[#0D4A4A] text-white rounded-br-sm"
+          : "bg-gray-100 text-gray-800 rounded-bl-sm"
+      }`}
+    >
+      {msg.role === "bot" ? (
+        <div className="prose prose-sm max-w-none">
+          <ReactMarkdown>{msg.text}</ReactMarkdown>
+        </div>
+      ) : (
+        msg.text
+      )}
+    </div>
+  </div>
+))}
             {isTyping && (
               <div className="flex justify-start">
                 <div className="px-4 py-2 rounded-2xl bg-gray-100 text-gray-800 rounded-bl-sm text-sm">
