@@ -22,13 +22,15 @@ export default function Home() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
+  // New: show floating button when less than 50% of hero is visible
   useEffect(() => {
     if (!heroRef.current) return
     const observer = new IntersectionObserver(
       ([entry]) => {
-        setShowFloatingButton(!entry.isIntersecting)
+        // Show button when less than half of hero is visible
+        setShowFloatingButton(entry.intersectionRatio < 0.5)
       },
-      { threshold: 0.1 }
+      { threshold: [0, 0.5] } // trigger at 0% and 50% visibility
     )
     observer.observe(heroRef.current)
     return () => observer.disconnect()
@@ -137,13 +139,11 @@ export default function Home() {
         </div>
       </div>
 
-      {/* ======== TAGLINE – REMOVED FROM HERE ======== */}
-
       {/* ======== TRENDING EXPERIENCES – FULL WIDTH, HORIZONTAL SCROLL ======== */}
-<div className="w-full px-4 md:px-6 pb-4 mt-10 md:mt-12"> {/* added mt-10 md:mt-12 for more space */}
-  <span className="text-xs font-bold text-[#0D4A4A] uppercase tracking-widest block mb-4"> {/* changed color to brand teal */}
-    Trending experiences in your area
-  </span>
+      <div className="w-full px-4 md:px-6 pb-4 mt-10 md:mt-12">
+        <span className="text-xs font-bold text-[#0D4A4A] uppercase tracking-widest block mb-4">
+          Trending experiences in your area
+        </span>
 
         {/* Horizontal scroll container */}
         <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide">
@@ -241,7 +241,7 @@ export default function Home() {
         <p className="text-center text-gray-400 text-xs mt-2">← Scroll for more →</p>
       </div>
 
-      {/* ======== TAGLINE – MOVED HERE, AFTER CARDS AND BEFORE FOOTER ======== */}
+      {/* ======== TAGLINE – AFTER CARDS, BEFORE FOOTER ======== */}
       <div className="text-center px-6 py-12">
         <p className="text-[#0D4A4A] text-lg md:text-2xl font-bold">Your city. Your vibe. Your weekend.</p>
         <p className="text-gray-400 text-sm mt-2">Free · No spam · Launching in Delhi NCR</p>
@@ -288,16 +288,16 @@ export default function Home() {
       </footer>
 
       {/* ======== FLOATING CHAT BUTTON ======== */}
-      {showFloatingButton && (
-        <button
-          onClick={() => setChatOpen(true)}
-          className="fixed bottom-6 right-6 bg-[#0D4A4A] text-white px-5 py-3 rounded-full shadow-lg font-bold text-sm flex items-center gap-2 border-none cursor-pointer z-50 hover:scale-105 active:scale-95 transition-all"
-        >
-          <span>✨</span> Unwind Assistant
-        </button>
-      )}
+{showFloatingButton && (
+  <button
+    onClick={() => setChatOpen(true)}
+    className="fixed bottom-6 right-6 bg-[#0D4A4A] text-white px-5 py-3 rounded-full shadow-lg font-bold text-sm flex items-center gap-2 border-none cursor-pointer z-50 hover:scale-105 active:scale-95 transition-all"
+  >
+    <span>✨</span> Unwind Assistant
+  </button>
+)}
 
-      {/* ======== CHAT WINDOW (unchanged) ======== */}
+      {/* ======== CHAT WINDOW ======== */}
       {chatOpen && (
         <div className="fixed inset-0 md:top-1/2 md:left-1/2 md:right-auto md:bottom-auto md:-translate-x-1/2 md:-translate-y-1/2 w-full h-full md:w-[480px] md:h-[80vh] md:max-h-[750px] bg-[#FAFAF5] md:rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden transition-all duration-300 border border-gray-100">
           
