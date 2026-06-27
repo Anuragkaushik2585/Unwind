@@ -1,24 +1,44 @@
 "use client"
+
 import { useState, useEffect, useRef } from "react"
 import ReactMarkdown from "react-markdown"
 
 export default function Home() {
+  // ---------- STATE ----------
   const [chatOpen, setChatOpen] = useState(false)
   const [isTyping, setIsTyping] = useState(false)
   const [messages, setMessages] = useState([
     { role: "bot", text: "Hey! 👋 I'm your Unwind assistant. What are you looking to do this weekend?" }
   ])
   const [input, setInput] = useState("")
+  const [showFloatingButton, setShowFloatingButton] = useState(false)
 
+  // ---------- REFS ----------
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const heroRef = useRef<HTMLDivElement>(null)
 
+  // ---------- EFFECTS ----------
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
+  useEffect(() => {
+    if (!heroRef.current) return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setShowFloatingButton(!entry.isIntersecting)
+      },
+      { threshold: 0.1 }
+    )
+    observer.observe(heroRef.current)
+    return () => observer.disconnect()
+  }, [])
+
+  // ---------- CHAT LOGIC ----------
   const sendMessage = async (textToSend?: string) => {
     const textValue = textToSend || input
     if (!textValue.trim()) return
+
     const newMessages = [...messages, { role: "user", text: textValue }]
     setMessages(newMessages)
     setInput("")
@@ -66,14 +86,16 @@ export default function Home() {
     }
   }
 
+  // ---------- UTILITY ----------
   const openForm = () => {
     window.open('https://docs.google.com/forms/d/e/1FAIpQLSe5c93f6-R_nNTrQRHAEc_4-6p6ENp3RvGVPNnP8pIE1BAykw/viewform', '_blank')
   }
 
+  // ---------- RENDER ----------
   return (
     <div className="bg-[#FAFAF5] min-h-screen font-sans text-gray-800">
 
-      {/* Navbar */}
+      {/* ======== NAVBAR ======== */}
       <nav className="flex items-center justify-between px-6 md:px-12 py-5">
         <div className="flex items-center gap-3">
           <div className="bg-[#0D4A4A] w-9 h-9 rounded-full flex items-center justify-center">
@@ -81,13 +103,10 @@ export default function Home() {
           </div>
           <span className="text-[#0D4A4A] text-xl font-black">Unwind</span>
         </div>
-        <button onClick={openForm} className="bg-[#0D4A4A] text-[#FAFAF5] text-sm font-bold px-5 py-2 rounded-full cursor-pointer border-none">
-          Join waitlist
-        </button>
       </nav>
 
-      {/* Hero */}
-      <div className="relative mx-4 md:mx-6 rounded-2xl overflow-hidden h-[480px] md:h-[580px]">
+      {/* ======== HERO ======== */}
+      <div ref={heroRef} className="relative mx-4 md:mx-6 rounded-2xl overflow-hidden h-[480px] md:h-[580px]">
         <img src="/sanjayvan.jpeg" alt="Delhi experience" className="w-full h-full object-cover brightness-[0.6]"/>
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
           <p className="text-[#F5A623] text-xs font-semibold tracking-widest uppercase mb-5">
@@ -105,113 +124,188 @@ export default function Home() {
           <p className="text-white/80 text-sm md:text-lg max-w-md leading-relaxed mb-8">
             Real experiences near you — matched to your time, budget and mood. No planning needed.
           </p>
-          <div className="relative w-full max-w-md flex items-center bg-white/10 backdrop-blur-md border border-white/20 rounded-full px-5 py-3 shadow-lg focus-within:bg-white/15 focus-within:border-white/40 transition-all duration-200">
-            <input 
-              value={input} 
-              onChange={(e) => setInput(e.target.value)} 
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  setChatOpen(true);
-                  sendMessage();
-                }
-              }} 
-              placeholder="Plan my weekend..." 
-              className="flex-1 bg-transparent text-white placeholder-white/60 text-sm outline-none pr-10"
-            />
-            <button 
-              onClick={() => {
-                setChatOpen(true);
-                sendMessage();
-              }} 
-              className="absolute right-2 bg-[#F5A623] text-[#0D4A4A] w-9 h-9 rounded-full flex items-center justify-center border-none cursor-pointer text-lg hover:scale-105 active:scale-95 transition-all shadow-md animate-pulse"
-            >
-              →
-            </button>
-          </div>
+
+          <p className="text-white/90 text-sm md:text-base font-medium mb-4">
+            Let the Unwind assistant plan for you ✨
+          </p>
+          <button
+            onClick={() => setChatOpen(true)}
+            className="bg-[#F5A623] text-[#0D4A4A] font-bold px-8 py-3 rounded-full shadow-lg hover:scale-105 active:scale-95 transition-all duration-200 border-none cursor-pointer text-base"
+          >
+            Start planning →
+          </button>
         </div>
       </div>
 
-      {/* Photo strip */}
-      <div className="grid grid-cols-3 gap-3 px-4 md:px-6 pt-3">
-        <img src="/qutub.jpeg" alt="Qutub Minar" className="w-full h-32 md:h-82 object-cover rounded-2xl"/>
-        <img src="/mural.jpeg" alt="Street art" className="w-full h-32 md:h-82 object-cover rounded-2xl"/>
-        <img src="/friends.jpeg" alt="Friends" className="w-full h-32 md:h-82 object-cover rounded-2xl"/>
+      {/* ======== TAGLINE – REMOVED FROM HERE ======== */}
+
+      {/* ======== TRENDING EXPERIENCES – FULL WIDTH, HORIZONTAL SCROLL ======== */}
+<div className="w-full px-4 md:px-6 pb-4 mt-10 md:mt-12"> {/* added mt-10 md:mt-12 for more space */}
+  <span className="text-xs font-bold text-[#0D4A4A] uppercase tracking-widest block mb-4"> {/* changed color to brand teal */}
+    Trending experiences in your area
+  </span>
+
+        {/* Horizontal scroll container */}
+        <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide">
+          {[
+            {
+              img: "/qutub.jpeg",
+              subheading: "Heritage walks",
+              heading: "Qutub Minar",
+              location: "Mehrauli, Delhi",
+              price: "₹500",
+              sourceUrl: "https://example.com/qutub"
+            },
+            {
+              img: "/mural.jpeg",
+              subheading: "Street art & culture",
+              heading: "Lodhi Colony",
+              location: "Lodhi Colony, Delhi",
+              price: "Free",
+              sourceUrl: "https://example.com/lodhi"
+            },
+            {
+              img: "/friends.jpeg",
+              subheading: "Hang with friends",
+              heading: "Cafe Crawl",
+              location: "Hauz Khas, Delhi",
+              price: "₹800",
+              sourceUrl: "https://example.com/cafe"
+            },
+            {
+              img: "/sanjayvan.jpeg",
+              subheading: "Nature escapes",
+              heading: "Sanjay Van",
+              location: "Vasant Kunj, Delhi",
+              price: "Free",
+              sourceUrl: "https://example.com/sanjayvan"
+            },
+            // Additional card to show scrolling
+            {
+              img: "/qutub.jpeg",
+              subheading: "Another walk",
+              heading: "New Place",
+              location: "Somewhere, Delhi",
+              price: "₹200",
+              sourceUrl: "https://example.com/new"
+            }
+          ].map((card, idx) => (
+            <div
+              key={idx}
+              className="relative rounded-2xl overflow-hidden h-56 w-72 flex-shrink-0 shadow-md group bg-white snap-start"
+            >
+              <img
+                src={card.img}
+                alt={card.heading}
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              />
+              <div
+                className="absolute top-0 left-0 right-0 h-1/2 pointer-events-none z-10"
+                style={{
+                  backdropFilter: 'blur(80px)',
+                  WebkitBackdropFilter: 'blur(80px)',
+                  mask: 'linear-gradient(to bottom, black 0%, transparent 100%)',
+                  WebkitMask: 'linear-gradient(to bottom, black 0%, transparent 100%)'
+                }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-b from-[#062832]/65 via-transparent to-black/80 group-hover:from-[#062832]/75 group-hover:to-black/85 transition-all duration-200 z-20" />
+
+              <div className="absolute inset-0 flex flex-col justify-between p-3 z-30">
+                <div className="flex flex-col items-start">
+                  <span className="text-white/90 text-[10px] md:text-xs font-semibold tracking-wider uppercase">
+                    {card.subheading}
+                  </span>
+                  <span className="text-white text-base md:text-lg font-bold tracking-wide drop-shadow-sm">
+                    {card.heading}
+                  </span>
+                </div>
+                <div className="flex flex-col items-start gap-1 bg-black/40 backdrop-blur-sm rounded-lg p-2 w-full">
+                  <span className="text-white/80 text-[10px]">{card.location}</span>
+                  <div className="flex items-center justify-between w-full">
+                    <span className="text-[#F5A623] text-xs font-bold">{card.price}</span>
+                    <a
+                      href={card.sourceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-white bg-[#0D4A4A] hover:bg-[#0D4A4A]/80 px-3 py-1 rounded-full text-[10px] font-semibold transition-colors"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      Book now →
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <p className="text-center text-gray-400 text-xs mt-2">← Scroll for more →</p>
       </div>
 
-      {/* Tagline */}
+      {/* ======== TAGLINE – MOVED HERE, AFTER CARDS AND BEFORE FOOTER ======== */}
       <div className="text-center px-6 py-12">
         <p className="text-[#0D4A4A] text-lg md:text-2xl font-bold">Your city. Your vibe. Your weekend.</p>
         <p className="text-gray-400 text-sm mt-2">Free · No spam · Launching in Delhi NCR</p>
       </div>
 
-      {/* Trending Experiences */}
-      <div className="max-w-4xl mx-auto px-6 pb-20 flex flex-col gap-4">
-        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest text-center md:text-left">Trending experiences</span>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { img: "/qutub.jpeg", subheading: "Heritage walks", heading: "Qutub Minar", query: "Heritage walks in Qutub Minar" },
-            { img: "/mural.jpeg", subheading: "Street art & culture", heading: "Lodhi Colony", query: "Street art & culture in Lodhi Colony" },
-            { img: "/friends.jpeg", subheading: "Hang with friends", heading: "Cafe Crawl", query: "Cafe crawls with friends" },
-            { img: "/sanjayvan.jpeg", subheading: "Nature escapes", heading: "Sanjay Van", query: "Nature escapes in Sanjay Van" }
-          ].map((card, idx) => (
-            <button 
-              key={idx}
-              onClick={() => {
-                setChatOpen(true);
-                sendMessage(card.query);
-              }} 
-              className="relative rounded-2xl overflow-hidden h-36 md:h-48 w-full text-left cursor-pointer border-none group active:scale-[0.98] transition-transform duration-150 shadow-md"
+      {/* ======== FOOTER ======== */}
+      <footer className="border-t border-gray-200 py-6 px-6 md:px-12 mt-4 mb-24 md:mb-16">
+        <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <span className="text-[#0D4A4A] font-black text-sm">© 2026 Unwind</span>
+          </div>
+
+          <div className="flex items-center gap-6 flex-wrap justify-center">
+            <a
+              href="https://linkedin.com/company/unwind"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-500 hover:text-[#0D4A4A] text-sm font-medium transition-colors"
             >
-              <img 
-                src={card.img} 
-                alt={card.heading} 
-                className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-              />
-              {/* Rahee style top blur mask */}
-              <div 
-                className="absolute top-0 left-0 right-0 h-1/2 pointer-events-none z-10" 
-                style={{ 
-                  backdropFilter: 'blur(80px)', 
-                  WebkitBackdropFilter: 'blur(80px)', 
-                  mask: 'linear-gradient(to bottom, black 0%, transparent 100%)', 
-                  WebkitMask: 'linear-gradient(to bottom, black 0%, transparent 100%)' 
-                }} 
-              />
-              {/* Gradient backdrop */}
-              <div className="absolute inset-0 bg-gradient-to-b from-[#062832]/65 via-transparent to-black/80 group-hover:from-[#062832]/75 group-hover:to-black/85 transition-all duration-200 z-20" />
-              
-              {/* Center aligned texts */}
-              <div className="absolute inset-0 flex flex-col justify-center items-center text-center p-3 z-30">
-                <span className="text-white/90 text-[10px] md:text-xs font-semibold tracking-wider uppercase">{card.subheading}</span>
-                <span className="text-white text-base md:text-lg font-bold tracking-wide mt-1 drop-shadow-sm">{card.heading}</span>
-              </div>
+              LinkedIn
+            </a>
+            <a
+              href="https://instagram.com/unwind"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-500 hover:text-[#0D4A4A] text-sm font-medium transition-colors"
+            >
+              Instagram
+            </a>
+            <a
+              href="/about"
+              className="text-gray-500 hover:text-[#0D4A4A] text-sm font-medium transition-colors"
+            >
+              About
+            </a>
+            <button
+              onClick={openForm}
+              className="bg-[#0D4A4A] text-[#FAFAF5] text-xs font-semibold px-4 py-2 rounded-full hover:scale-105 active:scale-95 transition-all border-none cursor-pointer"
+            >
+              Join waitlist
             </button>
-          ))}
+          </div>
         </div>
-      </div>
+      </footer>
 
-      {/* Floating chat button */}
-      <button onClick={() => setChatOpen(true)} className="fixed bottom-6 right-6 bg-[#0D4A4A] text-white px-5 py-3 rounded-full shadow-lg font-bold text-sm flex items-center gap-2 border-none cursor-pointer z-50 hover:scale-105 active:scale-95 transition-all">
-        <span>✨</span> Plan my weekend
-      </button>
+      {/* ======== FLOATING CHAT BUTTON ======== */}
+      {showFloatingButton && (
+        <button
+          onClick={() => setChatOpen(true)}
+          className="fixed bottom-6 right-6 bg-[#0D4A4A] text-white px-5 py-3 rounded-full shadow-lg font-bold text-sm flex items-center gap-2 border-none cursor-pointer z-50 hover:scale-105 active:scale-95 transition-all"
+        >
+          <span>✨</span> Plan my weekend
+        </button>
+      )}
 
-      {/* Chat window */}
+      {/* ======== CHAT WINDOW (unchanged) ======== */}
       {chatOpen && (
         <div className="fixed inset-0 md:top-1/2 md:left-1/2 md:right-auto md:bottom-auto md:-translate-x-1/2 md:-translate-y-1/2 w-full h-full md:w-[480px] md:h-[80vh] md:max-h-[750px] bg-[#FAFAF5] md:rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden transition-all duration-300 border border-gray-100">
           
           {messages.length === 1 ? (
             /* START SCREEN */
             <>
-              {/* Start Screen Header */}
               <div className="px-6 pt-5 pb-2 flex items-center justify-between flex-shrink-0 bg-[#FAFAF5]">
-                <button 
-                  onClick={() => setChatOpen(false)} 
-                  className="text-[#0D4A4A] hover:text-[#0D4A4A]/80 text-2xl bg-transparent border-none cursor-pointer p-1 transition-colors font-bold"
-                  aria-label="Back"
-                >
-                  ←
-                </button>
+                <button onClick={() => setChatOpen(false)} className="text-[#0D4A4A] hover:text-[#0D4A4A]/80 text-2xl bg-transparent border-none cursor-pointer p-1 transition-colors font-bold">←</button>
                 <div className="flex items-center gap-1.5 opacity-60">
                   <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
                   <span className="text-[10px] font-bold text-[#0D4A4A] uppercase tracking-wider">AI Assistant</span>
@@ -219,8 +313,6 @@ export default function Home() {
               </div>
 
               <div className="flex-1 flex flex-col justify-start px-6 pb-6 overflow-y-auto bg-[#FAFAF5] gap-6" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                
-                {/* Intro / Brand Welcome */}
                 <div className="flex flex-col items-center text-center mt-2 flex-shrink-0">
                   <div className="bg-[#0D4A4A] w-12 h-12 rounded-full flex items-center justify-center shadow-md mb-3">
                     <span className="text-[#F5A623] text-2xl font-black">≋</span>
@@ -231,40 +323,32 @@ export default function Home() {
                   </p>
                 </div>
 
-                {/* Search Input Card */}
                 <div className="flex flex-col gap-2 flex-shrink-0">
                   <div className="relative flex flex-col bg-white border border-[#0D4A4A]/10 rounded-2xl p-4 h-28 focus-within:ring-2 focus-within:ring-[#0D4A4A]/10 focus-within:border-[#0D4A4A]/30 focus-within:shadow-md transition-all duration-200">
                     <div className="flex gap-2 items-start flex-1 h-full">
                       <span className="text-[#0D4A4A] mt-0.5 text-base flex-shrink-0">✨</span>
-                      <textarea 
-                        value={input} 
-                        onChange={(e) => setInput(e.target.value)} 
+                      <textarea
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault();
                             sendMessage();
                           }
-                        }} 
-                        placeholder="Ask your question here (e.g. Improv Comedy Hauz Khas or Pottery class)..." 
+                        }}
+                        placeholder="Ask your question here (e.g. Improv Comedy Hauz Khas or Pottery class)..."
                         className="flex-1 bg-transparent text-sm text-[#0D4A4A] placeholder-[#0D4A4A]/50 outline-none resize-none font-medium h-full"
                       />
                     </div>
-                    <button 
-                      onClick={() => sendMessage()} 
-                      className="absolute bottom-3 right-3 bg-[#0D4A4A] hover:bg-[#0D4A4A]/90 text-white w-9 h-9 rounded-full flex items-center justify-center border-none cursor-pointer text-lg transition-transform active:scale-95 shadow-sm z-30 font-bold"
-                    >
-                      →
-                    </button>
+                    <button onClick={() => sendMessage()} className="absolute bottom-3 right-3 bg-[#0D4A4A] hover:bg-[#0D4A4A]/90 text-white w-9 h-9 rounded-full flex items-center justify-center border-none cursor-pointer text-lg transition-transform active:scale-95 shadow-sm z-30 font-bold">→</button>
                   </div>
                   <p className="text-center text-gray-400 text-[10px] md:text-xs">
                     Powered by Google Gemini. <span className="underline cursor-pointer">Privacy Policy</span>
                   </p>
                 </div>
 
-                {/* Categorized Suggestions */}
                 <div className="flex flex-col gap-4">
                   <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Choose a vibe to start</span>
-                  
                   <div className="flex flex-col gap-3">
                     {[
                       {
@@ -309,13 +393,11 @@ export default function Home() {
                     ))}
                   </div>
                 </div>
-
               </div>
             </>
           ) : (
             /* NORMAL CHAT THREAD */
             <>
-              {/* Header */}
               <div className="bg-[#0D4A4A] px-4 py-4 flex items-center justify-between shadow-sm flex-shrink-0">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 bg-[#F5A623] rounded-full flex items-center justify-center text-[#0D4A4A] font-black text-base shadow-inner">U</div>
@@ -388,20 +470,16 @@ export default function Home() {
                 )}
                 <div ref={messagesEndRef} />
               </div>
+
               <div className="px-4 py-4 border-t border-gray-100 flex gap-2 bg-white flex-shrink-0">
-                <input 
-                  value={input} 
-                  onChange={(e) => setInput(e.target.value)} 
-                  onKeyDown={(e) => e.key === 'Enter' && sendMessage()} 
-                  placeholder="Type a message..." 
+                <input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+                  placeholder="Type a message..."
                   className="flex-1 border border-gray-200 rounded-full px-4 py-2.5 text-sm outline-none focus:border-[#0D4A4A] transition-colors text-gray-800"
                 />
-                <button 
-                  onClick={() => sendMessage()} 
-                  className="bg-[#0D4A4A] text-white w-10 h-10 rounded-full flex items-center justify-center border-none cursor-pointer text-base hover:bg-[#0D4A4A]/90 active:scale-95 transition-all flex-shrink-0"
-                >
-                  →
-                </button>
+                <button onClick={() => sendMessage()} className="bg-[#0D4A4A] text-white w-10 h-10 rounded-full flex items-center justify-center border-none cursor-pointer text-base hover:bg-[#0D4A4A]/90 active:scale-95 transition-all flex-shrink-0">→</button>
               </div>
             </>
           )}
