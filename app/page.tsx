@@ -291,7 +291,7 @@ export default function Home() {
 {showFloatingButton && (
   <button
     onClick={() => setChatOpen(true)}
-    className="fixed bottom-6 right-6 bg-[#0D4A4A] text-white px-5 py-3 rounded-full shadow-lg font-bold text-sm flex items-center gap-2 border-none cursor-pointer z-50 hover:scale-105 active:scale-95 transition-all"
+    className="fixed bottom-6 right-6 bg-[#0D4A4A] text-white px-3 py-2 md:px-5 md:py-3 rounded-full shadow-lg font-bold text-xs md:text-sm flex items-center gap-1.5 md:gap-2 border-none cursor-pointer z-50 hover:scale-105 active:scale-95 transition-all"
   >
     <span>✨</span> Unwind Assistant
   </button>
