@@ -259,11 +259,16 @@ export async function POST(req: Request) {
   const systemPrompt = buildSystemPrompt(events);
   const lastMessage = messages[messages.length - 1].text;
 
-  // Build clean conversation history (no fake system messages in history)
-  const history = messages.slice(0, -1).map((m: { role: string; text: string }) => ({
-    role: m.role === "user" ? "user" : "model",
-    parts: [{ text: m.text }],
-  }));
+// Always start with empty history — send previous turns as context in the first message
+const conversationContext = messages.slice(0, -1)
+  .map((m: { role: string; text: string }) => 
+    `${m.role === "user" ? "User" : "Assistant"}: ${m.text}`
+  )
+  .join("\n");
+
+const messageToSend = conversationContext
+  ? `Previous conversation:\n${conversationContext}\n\nUser: ${lastMessage}`
+  : lastMessage;
 
   for (const modelName of MODELS) {
     try {
@@ -273,9 +278,9 @@ export async function POST(req: Request) {
         systemInstruction: systemPrompt,
       });
 
-      const chat = model.startChat({ history });
+     const chat = model.startChat({ history: [] });
 
-      const result = await chat.sendMessageStream(lastMessage);
+const result = await chat.sendMessageStream(messageToSend);
 
       const stream = new ReadableStream({
         async start(controller) {
