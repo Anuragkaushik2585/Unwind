@@ -293,7 +293,7 @@ export default function Home() {
           onClick={() => setChatOpen(true)}
           className="fixed bottom-6 right-6 bg-[#0D4A4A] text-white px-5 py-3 rounded-full shadow-lg font-bold text-sm flex items-center gap-2 border-none cursor-pointer z-50 hover:scale-105 active:scale-95 transition-all"
         >
-          <span>✨</span> Plan my weekend
+          <span>✨</span> Unwind Assistant
         </button>
       )}
 
