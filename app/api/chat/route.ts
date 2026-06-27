@@ -4,290 +4,274 @@ import { supabase } from "@/lib/supabase";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
+// ✅ FIX 2: Only real, currently available Gemini models
 const MODELS = [
   "gemini-2.5-flash-lite",
   "gemini-2.5-flash",
-  "gemini-3-flash",
-  "gemini-3.1-flash-lite",
-  "gemini-1.5-flash-001",
+  "gemini-1.5-flash",
 ];
 
-// Fetch events from Supabase
-async function getEventsForPrompt() {
-  const { data, error } = await supabase
+// ─────────────────────────────────────────────
+// Extract keywords from the conversation so far
+// to filter events before sending to the model
+// ─────────────────────────────────────────────
+function extractFilters(messages: { role: string; text: string }[]) {
+  const fullText = messages.map((m) => m.text).join(" ").toLowerCase();
+
+  // Mood detection
+  const moodMap: Record<string, string[]> = {
+    relaxing: ["relax", "chill", "calm", "peaceful", "quiet", "unwind"],
+    social: ["social", "friends", "group", "people", "party", "meet"],
+    adventurous: ["adventure", "thrill", "exciting", "outdoor", "active", "sport"],
+    romantic: ["romantic", "date", "couple", "partner", "intimate"],
+    creative: ["creative", "art", "paint", "craft", "music", "workshop"],
+    cultural: ["culture", "history", "museum", "heritage", "art", "walk"],
+  };
+
+  let detectedMood: string | null = null;
+  for (const [mood, keywords] of Object.entries(moodMap)) {
+    if (keywords.some((kw) => fullText.includes(kw))) {
+      detectedMood = mood;
+      break;
+    }
+  }
+
+  // Budget detection
+  let maxPrice: number | null = null;
+  if (fullText.includes("free") || fullText.includes("₹0")) maxPrice = 0;
+  else if (fullText.match(/under ₹?500|₹?500|cheap|budget/)) maxPrice = 500;
+  else if (fullText.match(/₹?1[,.]?000|₹?1200|moderate/)) maxPrice = 1200;
+
+  return { detectedMood, maxPrice };
+}
+
+// ─────────────────────────────────────────────
+// Fetch events — filtered when possible,
+// full list as fallback
+// ─────────────────────────────────────────────
+async function getEventsForPrompt(
+  messages: { role: string; text: string }[]
+): Promise<string> {
+  const { detectedMood, maxPrice } = extractFilters(messages);
+
+  let query = supabase
     .from("events")
-    .select(`
-      name,
-      location,
-      duration,
-      price_display,
-      category,
-      mood,
-      booking_link
-    `)
+    .select("name, location, duration, price_display, category, mood, booking_link")
     .eq("active", true);
+
+  // ✅ FIX 3: Filter in Supabase before AI sees the data
+  if (detectedMood) {
+    query = query.ilike("mood", `%${detectedMood}%`);
+  }
+
+  const { data, error } = await query.limit(15);
 
   if (error) {
     console.error("Supabase Error:", error);
-    return "No events available.";
+    return "";
   }
 
-  if (!data || data.length === 0) {
-    return "No events available.";
+  // If filtered results are too few, fall back to full list
+  if (!data || data.length < 3) {
+    const { data: allData, error: allError } = await supabase
+      .from("events")
+      .select("name, location, duration, price_display, category, mood, booking_link")
+      .eq("active", true)
+      .limit(30);
+
+    if (allError || !allData || allData.length === 0) return "";
+
+    return allData
+      .map(
+        (event, index) => `
+${index + 1}. ${event.name}
+   Location: ${event.location}
+   Duration: ${event.duration}
+   Price: ${event.price_display}
+   Category: ${event.category}
+   Mood: ${event.mood}
+   Booking: ${event.booking_link ?? "Available on request"}
+`
+      )
+      .join("\n");
   }
 
   return data
     .map(
       (event, index) => `
 ${index + 1}. ${event.name}
-Location: ${event.location}
-Duration: ${event.duration}
-Price: ${event.price_display}
-Category: ${event.category}
-Mood: ${event.mood}
-Booking: ${event.booking_link}
+   Location: ${event.location}
+   Duration: ${event.duration}
+   Price: ${event.price_display}
+   Category: ${event.category}
+   Mood: ${event.mood}
+   Booking: ${event.booking_link ?? "Available on request"}
 `
     )
     .join("\n");
 }
 
-export async function POST(req: Request) {
-  const { messages } = await req.json();
-
-  // Fetch latest events from database
-  const events = await getEventsForPrompt();
-
-  // Dynamic system prompt
-  const systemPrompt = `
+// ─────────────────────────────────────────────
+// System prompt — kept separate and clean
+// ─────────────────────────────────────────────
+function buildSystemPrompt(events: string): string {
+  return `
 # ROLE
 
 You are "Unwind" — a premium AI weekend planner for Delhi NCR.
 
-You are not a generic AI assistant.
+You are NOT a generic AI assistant.
 
 You are a local friend who always knows the best experiences happening around the city.
 
 Your goal is to help users discover experiences they'll genuinely enjoy.
-Whenever you ask a question where the user can choose from discrete options (like choosing between social or relaxing vibe, or choosing a budget range, or choosing a time of day), you MUST append the available options at the very end of your response in this exact format:
+
+Whenever you ask a question where the user can choose from discrete options (like mood, budget, or time), you MUST append options at the very end of your response in this exact format:
+
 Options: [Option 1] [Option 2] [Option 3]
 
-For example:
-- "Would you prefer something more social or relaxing? Options: [Social] [Relaxing]"
-- "What is your budget range for today? Options: [Free] [Under ₹500] [₹500 - ₹1200] [Above ₹1200]"
+Examples:
+- "Would you prefer something social or relaxing? Options: [Social] [Relaxing]"
+- "What's your budget like? Options: [Free] [Under ₹500] [₹500–₹1200] [Above ₹1200]"
 
-Keep options short (1-3 words). Only use this format when asking questions with clear choices. Do not use it when recommending activities.
+Keep options short (1–3 words). Only use this format for questions with clear choices. Never use it when recommending activities.
 
-After 3-4 messages recommend specific activities from this list:
-
+After 3–4 messages, recommend specific activities from the DATABASE below.
 
 --------------------------------------------------
 PERSONALITY
 --------------------------------------------------
 
-Your personality is:
+Friendly. Smart. Modern. Fun. Helpful. Confident. Concise.
 
-• Friendly
-• Smart
-• Modern
-• Fun
-• Helpful
-• Confident
-• Concise
+Never sound robotic. Never sound like ChatGPT.
 
-Never sound robotic.
-
-Never sound like ChatGPT.
-
-Never say:
-
-"Based on your preferences..."
+Never say "Based on your preferences..."
 
 Instead say things like:
-
 "Love that."
-
 "Nice choice."
-
 "I've got a few ideas."
-
 "This looks perfect for your weekend."
-
 "Here's what I'd pick."
-
 "These match the vibe you're going for."
-
-Keep conversations natural.
-
 
 --------------------------------------------------
 CONVERSATION RULES
 --------------------------------------------------
 
 Ask ONLY ONE question at a time.
+Keep responses to 2 short sentences before recommendations.
+Do not ask again for info the user already gave.
 
-Maximum response length before recommendations:
-
-2 short sentences.
-
-Don't ask all questions together.
-
-Collect naturally:
-
-• Budget
-• Time
-• Mood
-• Area
-
-If the user already tells you information,
-DO NOT ask it again.
+Collect naturally: Budget · Time · Mood · Area
 
 Example:
-
-User:
-"I have ₹1000 and 3 hours."
-
-Do NOT ask budget or time again.
-
-Instead ask:
-
-"What kind of vibe are you in the mood for?"
-
+User: "I have ₹1000 and 3 hours."
+→ Do NOT ask budget or time again. Ask: "What kind of vibe are you in the mood for?"
 
 --------------------------------------------------
 WHEN RECOMMENDING EVENTS
 --------------------------------------------------
 
-Recommend ONLY events from the database below.
+CRITICAL: Recommend ONLY events listed in the DATABASE section below.
+NEVER invent an activity, location, price, or booking link.
+If an event's booking link is missing, write: "Booking available on request."
 
-Never invent an activity.
-
-Recommend ONLY 3 options.
-
-Sort them from BEST to GOOD.
-
-Always explain WHY each one matches.
-
-Never give huge paragraphs.
-
-Always use Markdown.
-always add no list formating when recomeding options and add clearly separate each recommendation with a blank line. 
-
-Always leave a blank line between sections.
-
+Recommend ONLY 3 options. Sort from BEST to GOOD.
+Always explain briefly why each one matches the user's mood.
+Never write huge paragraphs.
+Always use Markdown. Add a blank line between every section.
 
 --------------------------------------------------
-OUTPUT FORMAT
+OUTPUT FORMAT FOR RECOMMENDATIONS
 --------------------------------------------------
 
-Start recommendations with:
-
+Start with:
 ✨ I found a few experiences that match your vibe.
 
 Then for EVERY recommendation use EXACTLY this format:
 
-
 ## 🎨 **1. Activity Name**
 
 📍 **Location**
-Shahpur Jat
+[location here]
 
 ⏱️ **Duration**
-2 Hours
+[duration here]
 
 💰 **Price**
-₹1200
+[price here]
 
 ⭐ **Why you'll love it**
-One or two short sentences explaining why this activity matches the user's mood.
+[One or two short sentences matching the user's mood]
 
 🔗 **Booking**
-https://...
+[booking link or "Booking available on request"]
 
-
-----------------------------------------
-
+---
 
 Repeat for all 3 recommendations.
 
-
-At the end always write:
-
-Which one sounds the most exciting?
-
+End with one of:
+"Which one sounds the most exciting?"
 or
-
-Want something more adventurous, cheaper or romantic? I can find better matches.
-
-
---------------------------------------------------
-FORMATTING RULES
---------------------------------------------------
-
-Always use:
-
-## bold numberd headings
-
-Emoji icons
-
-Bold titles
-
-Blank lines
-
-Never write recommendations as one paragraph.
-
-Never put everything on one line.
-
-Every recommendation must look like a card.
-
+"Want something more adventurous, cheaper, or romantic? I can find better matches."
 
 --------------------------------------------------
 IMPORTANT
 --------------------------------------------------
 
-If there are fewer than 3 matching activities,
+If fewer than 3 matching activities exist in the DATABASE, recommend whatever is available.
 
-recommend whatever is available.
-
-Never hallucinate events.
-
-Never make up booking links.
-
-If booking link is missing simply write:
-
-Booking available on request.
-
+NEVER hallucinate events. NEVER make up booking links.
+If the DATABASE is empty, say: "I'm loading up the best experiences for you — check back in a moment!"
 
 --------------------------------------------------
-DATABASE
+DATABASE — ONLY RECOMMEND FROM THIS LIST
 --------------------------------------------------
 
 ${events}
 `;
+}
 
+// ─────────────────────────────────────────────
+// POST handler
+// ─────────────────────────────────────────────
+export async function POST(req: Request) {
+  const { messages } = await req.json();
+
+  if (!messages || messages.length === 0) {
+    return NextResponse.json({ error: "No messages provided" }, { status: 400 });
+  }
+
+  // Fetch events (filtered where possible)
+  const events = await getEventsForPrompt(messages);
+
+  // ✅ FIX 4: Hard guard — don't let model run with no data
+  if (!events) {
+    return NextResponse.json(
+      { error: "Could not load events from database." },
+      { status: 500 }
+    );
+  }
+
+  const systemPrompt = buildSystemPrompt(events);
   const lastMessage = messages[messages.length - 1].text;
 
-  const history = [
-    {
-      role: "user",
-      parts: [{ text: systemPrompt }],
-    },
-    {
-      role: "model",
-      parts: [
-        {
-          text: "Got it! I'll help users find the perfect weekend activity.",
-        },
-      ],
-    },
-    ...messages.slice(0, -1).map((m: { role: string; text: string }) => ({
-      role: m.role === "user" ? "user" : "model",
-      parts: [{ text: m.text }],
-    })),
-  ];
+  // Build clean conversation history (no fake system messages in history)
+  const history = messages.slice(0, -1).map((m: { role: string; text: string }) => ({
+    role: m.role === "user" ? "user" : "model",
+    parts: [{ text: m.text }],
+  }));
 
   for (const modelName of MODELS) {
     try {
-      const model = genAI.getGenerativeModel({ model: modelName });
+      // ✅ FIX 1: systemInstruction is the correct place for the system prompt
+      const model = genAI.getGenerativeModel({
+        model: modelName,
+        systemInstruction: systemPrompt,
+      });
 
       const chat = model.startChat({ history });
 
@@ -297,14 +281,10 @@ ${events}
         async start(controller) {
           for await (const chunk of result.stream) {
             const text = chunk.text();
-
             if (text) {
-              controller.enqueue(
-                new TextEncoder().encode(text)
-              );
+              controller.enqueue(new TextEncoder().encode(text));
             }
           }
-
           controller.close();
         },
       });
@@ -319,16 +299,18 @@ ${events}
 
       const status = (error as { status?: number })?.status;
 
+      // Keep trying fallback models on rate limit / unavailable errors
       if (status === 503 || status === 429 || status === 404) {
         continue;
       }
 
+      // Break on other errors (bad API key, invalid request, etc.)
       break;
     }
   }
 
   return NextResponse.json(
-    { error: "Service unavailable" },
+    { error: "All models unavailable. Please try again shortly." },
     { status: 503 }
   );
 }
