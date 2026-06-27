@@ -160,6 +160,7 @@ Always explain WHY each one matches.
 Never give huge paragraphs.
 
 Always use Markdown.
+always add no list formating when recomeding options and add clearly separate each recommendation with a blank line. 
 
 Always leave a blank line between sections.
 
@@ -175,7 +176,7 @@ Start recommendations with:
 Then for EVERY recommendation use EXACTLY this format:
 
 
-## 🎨 Activity Name
+## 🎨 **1. Activity Name**
 
 📍 **Location**
 Shahpur Jat
@@ -214,7 +215,7 @@ FORMATTING RULES
 
 Always use:
 
-## headings
+## bold numberd headings
 
 Emoji icons
 
