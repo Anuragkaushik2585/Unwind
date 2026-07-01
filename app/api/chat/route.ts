@@ -6,9 +6,10 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 // ✅ FIX 2: Only real, currently available Gemini models
 const MODELS = [
-  "gemini-2.5-flash-lite",
-  "gemini-2.5-flash",
-  "gemini-1.5-flash",
+  "gemini-3.1-flash-lite",  // fastest, 15 RPM
+  "gemini-2.5-flash-lite",  // fast, 15 RPM  
+  "gemini-2.5-flash",       // smarter, 10 RPM
+  "gemini-3.5-flash",       // best quality, last resort
 ];
 
 // ─────────────────────────────────────────────
