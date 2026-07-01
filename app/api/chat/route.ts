@@ -17,16 +17,19 @@ const MODELS = [
 // to filter events before sending to the model
 // ─────────────────────────────────────────────
 function extractFilters(messages: { role: string; text: string }[]) {
-  const fullText = messages.map((m) => m.text).join(" ").toLowerCase();
+  const recentMessages = messages.slice(-2);
+const fullText = recentMessages.map((m) => m.text).join(" ").toLowerCase();
 
-  // Mood detection
+  // Mapped to match exact mood values in your Supabase database
   const moodMap: Record<string, string[]> = {
-    relaxing: ["relax", "chill", "calm", "peaceful", "quiet", "unwind"],
-    social: ["social", "friends", "group", "people", "party", "meet"],
-    adventurous: ["adventure", "thrill", "exciting", "outdoor", "active", "sport"],
-    romantic: ["romantic", "date", "couple", "partner", "intimate"],
-    creative: ["creative", "art", "paint", "craft", "music", "workshop"],
-    cultural: ["culture", "history", "museum", "heritage", "art", "walk"],
+    Chill: ["chill", "relax", "calm", "peaceful", "quiet", "unwind", "lazy", "cool", "easy", "slow", "chill out", "laid back", "lowkey", "cozy", "lounge", "rest", "breather", "de-stress"],
+Active: ["active", "sport", "outdoor", "physical", "energy", "run", "cycle", "trek", "walk", "adventure", "thrill", "exciting", "fitness", "workout", "hike", "climb", "swim", "game", "play", "rush", "adrenaline"],
+Exploratory: ["explore", "discovery", "new", "adventure", "different", "unique", "hidden", "offbeat", "wander", "roam", "discover", "tour", "trail", "unusual", "secret", "underrated", "gems"],
+Romantic: ["romantic", "date", "couple", "partner", "intimate", "bae", "girlfriend", "boyfriend", "anniversary", "love", "special", "together", "candlelight", "dinner", "evening", "propose", "valentine", "wife", "husband"],
+Creative: ["creative", "art", "paint", "craft", "music", "workshop", "make", "diy", "draw", "sketch", "pottery", "design", "photography", "write", "create", "build", "sculpt", "dance", "perform"],
+Intellectual: ["intellectual", "learn", "culture", "history", "museum", "talk", "discussion", "book", "heritage", "lecture", "exhibit", "gallery", "documentary", "debate", "science", "knowledge", "educational", "study"],
+Fun: ["fun", "party", "social", "friends", "group", "people", "meet", "laugh", "comedy", "game night", "hangout", "gang", "crew", "squad", "celebration", "enjoy", "entertainment", "lively", "happening", "vibe"],
+Spiritual: ["spiritual", "meditation", "temple", "peace", "mindful", "yoga", "soul", "prayer", "retreat", "divine", "sacred", "worship", "inner", "zen", "healing", "chakra", "mantra", "ashram"],
   };
 
   let detectedMood: string | null = null;
@@ -45,7 +48,6 @@ function extractFilters(messages: { role: string; text: string }[]) {
 
   return { detectedMood, maxPrice };
 }
-
 // ─────────────────────────────────────────────
 // Fetch events — filtered when possible,
 // full list as fallback
@@ -60,31 +62,47 @@ async function getEventsForPrompt(
     .select("name, location, duration, price_display, category, mood, booking_link")
     .eq("active", true);
 
-  // ✅ FIX 3: Filter in Supabase before AI sees the data
   if (detectedMood) {
     query = query.ilike("mood", `%${detectedMood}%`);
   }
 
-  const { data, error } = await query.limit(15);
+  const { data: countData } = await supabase
+    .from("events")
+    .select("id", { count: "exact" })
+    .eq("active", true);
+
+  //console.log("Total active events:", countData?.length);
+
+  const { data, error } = await query.limit(50);
+  //console.log("Filtered events returned:", data?.length);
+  //console.log("Moods in results:", data?.map(e => e.mood));
 
   if (error) {
     console.error("Supabase Error:", error);
     return "";
   }
 
-  // If filtered results are too few, fall back to full list
+  // ── FALLBACK: no mood detected, return mixed events ──
   if (!data || data.length < 3) {
-    const { data: allData, error: allError } = await supabase
-      .from("events")
-      .select("name, location, duration, price_display, category, mood, booking_link")
-      .eq("active", true)
-      .limit(30);
+    const moods = ["Chill", "Active", "Romantic", "Exploratory", "Creative", "Fun", "Intellectual"];
 
-    if (allError || !allData || allData.length === 0) return "";
+    const mixedResults = await Promise.all(
+      moods.map(mood =>
+        supabase
+          .from("events")
+          .select("name, location, duration, price_display, category, mood, booking_link")
+          .eq("active", true)
+          .ilike("mood", `%${mood}%`)
+          .limit(3)
+          .then(({ data }) => data ?? [])
+      )
+    );
 
-    return allData
-      .map(
-        (event, index) => `
+    const allMixed = mixedResults.flat().sort(() => Math.random() - 0.5).slice(0, 15);
+
+    if (allMixed.length === 0) return "";
+
+    return allMixed.map((event, index) => `
 ${index + 1}. ${event.name}
    Location: ${event.location}
    Duration: ${event.duration}
@@ -92,14 +110,13 @@ ${index + 1}. ${event.name}
    Category: ${event.category}
    Mood: ${event.mood}
    Booking: ${event.booking_link ?? "Available on request"}
-`
-      )
-      .join("\n");
+`).join("\n");
   }
 
-  return data
-    .map(
-      (event, index) => `
+  // ── NORMAL PATH: mood detected, shuffle and return ──
+  const shuffled = (data ?? []).sort(() => Math.random() - 0.5).slice(0, 15);
+
+  return shuffled.map((event, index) => `
 ${index + 1}. ${event.name}
    Location: ${event.location}
    Duration: ${event.duration}
@@ -107,9 +124,7 @@ ${index + 1}. ${event.name}
    Category: ${event.category}
    Mood: ${event.mood}
    Booking: ${event.booking_link ?? "Available on request"}
-`
-    )
-    .join("\n");
+`).join("\n");
 }
 
 // ─────────────────────────────────────────────
